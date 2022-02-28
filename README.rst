@@ -6,9 +6,8 @@ Provide a simple interface to query the input and output files of a snake workfl
 
 Usage
 ===========
-Example usage::
-    (sinput, soutput) = getSnake(locals(), 'tests/make_files/workflow_common.smk', 
-                                                ['tests/processed/recording_info.pkl'],'sort_spikes')
+Example::
+    (sinput, soutput) = getSnake(locals(), 'tests/make_files/workflow_common.smk', ['tests/processed/recording_info.pkl'],'sort_spikes')
 
 
 
