@@ -2,14 +2,14 @@
 snakehelper
 ===========
 
+Provide a simple interface to query the input and output files of a snake workflow. This allows snakemake to be used as part of the workflow or execute indepdently as scripts
 
-Add a short description here!
-
-
-Description
+Usage
 ===========
+Example usage::
+    (sinput, soutput) = getSnake(locals(), 'tests/make_files/workflow_common.smk', 
+                                                ['tests/processed/recording_info.pkl'],'sort_spikes')
 
-A longer description of your project goes here...
 
 
 Note
