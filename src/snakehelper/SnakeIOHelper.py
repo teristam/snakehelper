@@ -64,7 +64,7 @@ class IOParser:
     def compileWorkflow(self):
         #compile workflow to build the DAG
         snakemake.logger.setup_logfile()
-        workflow = snakemake.Workflow(self.snakefile,default_resources=None)
+        workflow = snakemake.Workflow(self.snakefile,default_resources=None, rerun_triggers=['mtime'])
         workflow.include(self.snakefile)
         workflow.check()
 
