@@ -2,7 +2,7 @@
 snakehelper
 ===========
 
-Provide a simple interface to query the input and output files of a snake workflow. This allows snakemake to be used as part of the workflow or execute indepdently as scripts. This enables the development of snakemake scripts in jupyter notebook or vscode code cells, significantly improving the development efficiency.
+Provide a simple interface to query the input and output files of a snake workflow. This allows snakemake to be used as part of the workflow or execute indepedently as scripts. This enables the development of snakemake scripts in jupyter notebook or vscode code cells, significantly improving the development efficiency.
 
 Usage
 ===========
