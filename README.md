@@ -18,5 +18,5 @@ from snakehelper.SnakeIOHelper import getSnake
 (sinput, soutput) = getSnake(locals(), 'tests/make_files/workflow_common.smk',
   ['tests/processed/recording_info.pkl'],'sort_spikes')
 ```
-
+`sinput` and `soutput` will then be a dictionary containing the input and output file name from the `sort_spikes` rule.
 
