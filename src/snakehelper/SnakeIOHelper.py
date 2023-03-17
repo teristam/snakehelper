@@ -34,7 +34,18 @@ def makeFolders(output):
                 print('Created folder:' + str(path.parent))
 
 def getSnake(locals:dict,snakefile:str, targets:list, rule:str, createFolder:bool = True):
-    # determine the running environment and return the snake object appropriately
+    """Return the input and output files according to a snakemake file, target and running rule
+
+    Args:
+    locals (dict): Local variables dictionary of caller script
+    snakefile (str): Snakefile location
+    targets (list): The file or files that are created when the rule is executed
+    rule (str): The rule for which you want to determine the input and output files
+    createFolder (bool): Whether or not to create output folders. Default is True. 
+
+    Returns:
+    Tuple: A tuple containing input and output files.
+    """
 
     if 'snakemake' not in locals: 
         parser = IOParser(snakefile, targets)

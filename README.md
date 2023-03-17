@@ -15,11 +15,31 @@ pip install .
 
 
 ### Usage
+
+
+```
+def getSnake(locals:dict,snakefile:str, targets:list, rule:str, createFolder:bool = True):
+    """Return the input and output files according to a snakemake file, target and running rule
+
+    Args:
+    locals (dict): Local variables dictionary of caller script
+    snakefile (str): Snakefile location
+    targets (list): The file or files that are created when the rule is executed
+    rule (str): The rule for which you want to determine the input and output files
+    createFolder (bool): Whether or not to create output folders. Default is True. 
+
+    Returns:
+    Tuple: A tuple containing input and output files.
+    """
+
+```
+
+Example
+
 ```
 from snakehelper.SnakeIOHelper import getSnake
 (sinput, soutput) = getSnake(locals(), 'tests/make_files/workflow_common.smk',
   ['tests/processed/recording_info.pkl'],'sort_spikes')
 ```
 snakemake require you to specify at least one of the output file name so that it can extract the wildcards used to build the workflow. 
-`sinput` and `soutput` will then be a dictionary containing the input and output file name from the `sort_spikes` rule. `getSnake` will automatically determinate if it is inside the snakemake environment or it is run as an standalone script.
-
+`sinput` and `soutput` are dictionaries containing the input and output file name from the `sort_spikes` rule. `getSnake` will automatically determinate if it is inside the snakemake environment or it is run as an standalone script.
