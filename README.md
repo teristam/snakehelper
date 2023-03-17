@@ -29,7 +29,7 @@ def getSnake(locals:dict,snakefile:str, targets:list, rule:str, createFolder:boo
     createFolder (bool): Whether or not to create output folders. Default is True. 
 
     Returns:
-    Tuple: A tuple containing input and output files.
+    Tuple: A tuple of dictionaries containing input and output files.
     """
 
 ```
