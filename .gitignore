@@ -50,3 +50,5 @@ MANIFEST
 .venv*/
 .env
 .vscode
+*.conda
+tests/processed

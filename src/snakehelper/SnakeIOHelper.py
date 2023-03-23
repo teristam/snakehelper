@@ -4,6 +4,7 @@ from pathlib import Path
 import snakemake
 import sys
 from pathlib import Path
+import os
 
 def makeFolders(output):
     # make folders used by the output varialbe if not exist
@@ -48,6 +49,14 @@ def getSnake(locals:dict,snakefile:str, targets:list, rule:str, createFolder:boo
     """
 
     if 'snakemake' not in locals: 
+        #We are running standlone mode
+        
+        #Auto switch to project root folder if SNAKE_ROOT is set
+        snake_root = os.environ.get('SNAKEMAKE_DEBUG_ROOT')
+        if snake_root is not None:
+            print('Changing working directory to:' + snake_root)
+            os.chdir(snake_root)
+            
         parser = IOParser(snakefile, targets)
         io = parser.getInputOutput4rule(rule)
         if createFolder:
