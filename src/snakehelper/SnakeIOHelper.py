@@ -34,7 +34,7 @@ def makeFolders(output):
                 os.makedirs(path.parent)
                 print('Created folder:' + str(path.parent))
 
-def getSnake(locals:dict,snakefile:str, targets:list, rule:str, createFolder:bool = True):
+def getSnake(locals:dict,snakefile:str, targets:list, rule:str, createFolder:bool = True, return_snake_obj=False):
     """Return the input and output files according to a snakemake file, target and running rule
 
     Args:
@@ -53,19 +53,26 @@ def getSnake(locals:dict,snakefile:str, targets:list, rule:str, createFolder:boo
         
         #Auto switch to project root folder if SNAKE_ROOT is set
         snake_root = os.environ.get('SNAKEMAKE_DEBUG_ROOT')
-        if snake_root is not None:
-            print('Changing working directory to:' + snake_root)
-            os.chdir(snake_root)
+        # if snake_root is not None:
+        #     print('Changing working directory to:' + snake_root)
+        #     os.chdir(snake_root)
             
         parser = IOParser(snakefile, targets)
         io = parser.getInputOutput4rule(rule)
         if createFolder:
             makeFolders(io.output)
-        return (io.input, io.output)
+            
+        if return_snake_obj:
+            return (io.input, io.output, io)
+        else:
+            return (io.input, io.output)
     else:
         if createFolder:
             makeFolders(locals['snakemake'].output)
-        return (locals['snakemake'].input, locals['snakemake'].output)
+        if return_snake_obj:
+            return (locals['snakemake'].input, locals['snakemake'].output, locals['snakemake'])
+        else:
+            return (locals['snakemake'].input, locals['snakemake'].output)
 
 
 def makeDummpyOutput(output):
