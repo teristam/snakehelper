@@ -34,7 +34,8 @@ def makeFolders(output):
                 os.makedirs(path.parent)
                 print('Created folder:' + str(path.parent))
 
-def getSnake(locals:dict,snakefile:str, targets:list, rule:str, createFolder:bool = True, return_snake_obj=False):
+def getSnake(locals:dict,snakefile:str, targets:list, 
+             rule:str, createFolder:bool = True, return_snake_obj=False, change_working_dir=True):
     """Return the input and output files according to a snakemake file, target and running rule
 
     Args:
@@ -53,7 +54,7 @@ def getSnake(locals:dict,snakefile:str, targets:list, rule:str, createFolder:boo
         
         #Auto switch to project root folder if SNAKE_ROOT is set
         snake_root = os.environ.get('SNAKEMAKE_DEBUG_ROOT')
-        if snake_root is not None:
+        if snake_root is not None and change_working_dir:
             print('Changing working directory to:' + snake_root)
             os.chdir(snake_root)
             
