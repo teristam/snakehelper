@@ -53,9 +53,9 @@ def getSnake(locals:dict,snakefile:str, targets:list, rule:str, createFolder:boo
         
         #Auto switch to project root folder if SNAKE_ROOT is set
         snake_root = os.environ.get('SNAKEMAKE_DEBUG_ROOT')
-        # if snake_root is not None:
-        #     print('Changing working directory to:' + snake_root)
-        #     os.chdir(snake_root)
+        if snake_root is not None:
+            print('Changing working directory to:' + snake_root)
+            os.chdir(snake_root)
             
         parser = IOParser(snakefile, targets)
         io = parser.getInputOutput4rule(rule)
