@@ -9,12 +9,14 @@
 """
 import sys
 
-from pkg_resources import VersionConflict, require
+from packaging.version import Version, InvalidVersion
 from setuptools import setup
 
 try:
-    require('setuptools>=38.3')
-except VersionConflict:
+    from setuptools import __version__ as setuptools_version
+    if Version(setuptools_version) < Version("38.3"):
+        raise InvalidVersion
+except InvalidVersion:
     print("Error: version of setuptools is too old (<38.3)!")
     sys.exit(1)
 
