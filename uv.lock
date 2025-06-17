@@ -931,7 +931,7 @@ wheels = [
 
 [[package]]
 name = "snakehelper"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "ipykernel" },
@@ -943,7 +943,7 @@ dependencies = [
 requires-dist = [
     { name = "ipykernel", specifier = ">=6.29.5" },
     { name = "pytest" },
-    { name = "snakemake", specifier = "==7.32" },
+    { name = "snakemake", specifier = "==7.32.0" },
 ]
 
 [[package]]
