@@ -1,0 +1,22 @@
+[project]
+name = "snakehelper"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "'Teris", email = "'teristam@gmail.com'" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "snakemake==7.32",
+    'pytest',
+    "ipykernel>=6.29.5",
+]
+
+[project.scripts]
+snakehelper = "snakehelper:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
