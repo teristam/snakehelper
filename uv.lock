@@ -1033,7 +1033,7 @@ dependencies = [
 requires-dist = [
     { name = "ipykernel", specifier = ">=6.29.5" },
     { name = "pytest" },
-    { name = "snakemake", specifier = "==9.0.0" },
+    { name = "snakemake", specifier = ">=9.0.0" },
 ]
 
 [[package]]

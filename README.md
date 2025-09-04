@@ -4,6 +4,10 @@ Provide a simple interface to query the input and output files of a snake workfl
 
 The original snakemake will inject a `snakemake` object into the running script, which will be confused with the snakemake package if you are running the sccript outside of the snakemake environment. This helper function compile the workflow and extract the input and output file names for you, so that you can use them to develop the script outside of the snakemake environment (e.g. in a Jupyter notebook or interactive shell). It uses the variables returned by `local()` function to determine whether it is running in a snakemake environment, and if so, return the input and output from the `snakemake` object. This provide a seamless development workflow where the same script can be run both inside and outside of snakemake, making code iteratiion and debugging much easier.
 
+### Requirements
+- Python 3.11+
+- Snakemake >= 9.0.0 (uses the public `snakemake.api`)
+
 ### Installation
 Due to the requirement of snakemake on the `datrie` package, in Windows you will need to install the [Microsoft Build Tool](https://visualstudio.microsoft.com/visual-cpp-build-tools/) for the setup to be successfully. Download the run the installer. Click `modify`
 
