@@ -1,38 +1,67 @@
 # a simple helper class to make working with snake input and output easier in a script
 import os
 from pathlib import Path
-import snakemake
 import sys
 from pathlib import Path
 import os
+import snakemake
+
+# Try to import stable APIs across Snakemake versions
+try:
+    from snakemake.workflow import Workflow as _SMWorkflow
+except Exception:  # pragma: no cover - compatibility path
+    _SMWorkflow = getattr(snakemake, 'Workflow', None)
+
+try:
+    from snakemake.io import OutputFiles as _SMOutputFiles
+except Exception:  # pragma: no cover - compatibility path
+    _SMOutputFiles = None
 
 def makeFolders(output):
-    # make folders used by the output varialbe if not exist
-    # only needed when scripts are used independently
-    # in snakemake, the folder will be created automatically
-    # if the path contains '/' at the end, then it is considered as a directory and created accordingly
-    
-    paths = []
+    """Create folders for output paths if they do not exist.
 
-    #Check what kind of object the output is
-    if isinstance(output, snakemake.io.OutputFiles):
-        for _,v in output.items():
-            paths.append(Path(v))
-    else:
-        #the output is a simple namespace
-        for _,path in output.__dict__.items():
-            paths.append(Path(path))
+    Supports Snakemake ``Namedlist``/``OutputFiles`` across versions, simple
+    iterables, dict-like objects, and simple namespaces.
+    """
 
+    def _iter_output_values(obj):
+        # Prefer mapping-style APIs when available
+        if hasattr(obj, 'items'):
+            for _, v in obj.items():
+                yield v
+            return
+        if hasattr(obj, 'values'):
+            for v in obj.values():
+                yield v
+            return
+        # Fallback: iterate if it behaves like a sequence (but not a string)
+        try:
+            from collections.abc import Iterable  # py311 stdlib
+            if isinstance(obj, Iterable) and not isinstance(obj, (str, bytes)):
+                for v in obj:
+                    yield v
+                return
+        except Exception:
+            pass
+        # Simple namespace objects
+        if hasattr(obj, '__dict__'):
+            for v in obj.__dict__.values():
+                yield v
+            return
+        # Last resort: treat the object itself as a single path value
+        yield obj
 
-    for path in paths:
-        if path.suffix == '': #if this is a folder
-            if not os.path.exists(path):
-                os.makedirs(path)
-                print('Created folder:' + str(path))
+    for v in _iter_output_values(output):
+        p = Path(str(v))
+        if p.suffix == '':  # looks like a directory
+            if not os.path.exists(p):
+                os.makedirs(p)
+                print('Created folder:' + str(p))
         else:
-            if not os.path.exists(path.parent):
-                os.makedirs(path.parent)
-                print('Created folder:' + str(path.parent))
+            parent = p.parent
+            if not os.path.exists(parent):
+                os.makedirs(parent)
+                print('Created folder:' + str(parent))
 
 def getSnake(locals:dict,snakefile:str, targets:list, 
              rule:str, createFolder:bool = True, return_snake_obj=False, change_working_dir=True):
@@ -86,18 +115,41 @@ class IOParser:
         self.targets = targets
 
         self.workflow = self.compileWorkflow()
-        self.dag = self.workflow.persistence.dag
+        # Retrieve DAG in a version-robust way
+        dag = None
+        try:
+            if hasattr(self.workflow, 'persistence') and hasattr(self.workflow.persistence, 'dag'):
+                dag = self.workflow.persistence.dag
+        except Exception:
+            dag = None
+        if dag is None and hasattr(self.workflow, 'dag'):
+            dag = self.workflow.dag
+        if dag is None:
+            raise RuntimeError('Unable to access Snakemake DAG after dry-run execution')
+        self.dag = dag
 
 
     def compileWorkflow(self):
-        #compile workflow to build the DAG
-        snakemake.logger.setup_logfile()
-        workflow = snakemake.Workflow(self.snakefile,default_resources=None, rerun_triggers=['mtime'])
+        # compile workflow to build the DAG
+        # Some Snakemake versions do not expose logger.setup_logfile
+        logger = getattr(snakemake, 'logger', None)
+        if logger is not None and hasattr(logger, 'setup_logfile'):
+            try:
+                logger.setup_logfile()
+            except Exception:
+                pass
+
+        # Build workflow using version-compatible entry point
+        if _SMWorkflow is None:
+            raise RuntimeError("Snakemake Workflow API not found; incompatible version")
+
+        # Use conservative constructor args for compatibility
+        workflow = _SMWorkflow(self.snakefile)
         workflow.include(self.snakefile)
         workflow.check()
 
         workflow.execute(dryrun=True, updated_files=[], quiet=True,
-            targets=self.targets, forceall=True)
+                         targets=self.targets, forceall=True)
 
         return workflow
 
