@@ -17,9 +17,9 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install package (editable) with uv
+      - name: Sync environment
         run: |
-          uv pip install -e .
+          uv sync --frozen
 
       - name: Run tests
         run: |
