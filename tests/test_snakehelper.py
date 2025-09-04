@@ -11,7 +11,8 @@ def test_parse_workflow():
                                             'sort_spikes', change_working_dir=False)
     
     assert sinput.recording_to_sort =='tests'
-    assert soutput.recording_info == 'tests/processed/recording_info.pkl'
+    # Normalize separators across OS (Windows vs POSIX)
+    assert Path(str(soutput.recording_info)) == Path('tests/processed/recording_info.pkl')
 
 
 def test_return_snake_obj_for_rule():
@@ -50,7 +51,8 @@ def test_create_folders_for_output(tmp_path):
         )
 
         assert out_dir.is_dir(), 'Expected output directory to be created'
-        assert str(out.recording_info) == str(out_file)
+        # Compare as Paths to avoid separator issues
+        assert Path(str(out.recording_info)) == out_file
     finally:
         # Cleanup created directories/files
         if out_dir.exists():
@@ -163,7 +165,8 @@ def test_no_create_folder_when_disabled():
         )
         # Directory should still not exist
         assert not out_dir.exists()
-        assert str(out.recording_info) == str(out_file)
+        # Compare as Paths to avoid separator issues
+        assert Path(str(out.recording_info)) == out_file
     finally:
         if out_dir.exists():
             shutil.rmtree(out_dir)
