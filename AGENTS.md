@@ -7,12 +7,12 @@
 - Build/config: `pyproject.toml`, `.coveragerc`, `uv.lock`.
 
 ## Build, Test, and Development Commands
-- Environment: Python 3.11+.
+*- Environment: Python 3.11+.
 - Install (editable): `pip install -e .` (or `uv pip install -e .`).
-- Run tests: `pytest -q` from repo root.
-- Coverage: `pytest -q --cov=snakehelper` (honors `.coveragerc`; requires `pytest-cov`).
+- Run tests: `uv run pytest -q` from repo root.
+- Coverage: `uv run pytest -q --cov=snakehelper` (honors `.coveragerc`; requires `pytest-cov`).
 - Clean caches: remove `__pycache__/`, `.pytest_cache/`, and `.snakemake/` if needed.
-
+*
 ## Coding Style & Naming Conventions
 - Style: PEP 8; 4‑space indents; add type hints where practical.
 - Naming: functions/variables `snake_case`, classes `CapWords`, modules `lower_snake_case`.
