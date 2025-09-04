@@ -7,7 +7,18 @@ import os
 import snakemake
 
 # Try to import stable APIs across Snakemake versions
-try:
+try:  # Snakemake >= 9 public API
+    from snakemake.api import (
+        SnakemakeApi as _SMSnakemakeApi,
+        DAGSettings as _SMDAGSettings,
+        ResourceSettings as _SMResourceSettings,
+    )
+except Exception:  # pragma: no cover - compatibility path
+    _SMSnakemakeApi = None
+    _SMDAGSettings = None
+    _SMResourceSettings = None
+
+try:  # Older internal API (Snakemake < 9)
     from snakemake.workflow import Workflow as _SMWorkflow
 except Exception:  # pragma: no cover - compatibility path
     _SMWorkflow = getattr(snakemake, 'Workflow', None)
@@ -117,20 +128,88 @@ class IOParser:
         self.workflow = self.compileWorkflow()
         # Retrieve DAG in a version-robust way
         dag = None
-        try:
-            if hasattr(self.workflow, 'persistence') and hasattr(self.workflow.persistence, 'dag'):
-                dag = self.workflow.persistence.dag
-        except Exception:
-            dag = None
-        if dag is None and hasattr(self.workflow, 'dag'):
+        # If compileWorkflow already returned an object with a dag, prefer that
+        if hasattr(self.workflow, 'dag') and self.workflow.dag is not None:
             dag = self.workflow.dag
+        else:
+            try:
+                if hasattr(self.workflow, 'persistence') and hasattr(self.workflow.persistence, 'dag'):
+                    dag = self.workflow.persistence.dag
+            except Exception:
+                dag = None
+            if dag is None and hasattr(self.workflow, 'dag'):
+                dag = self.workflow.dag
         if dag is None:
             raise RuntimeError('Unable to access Snakemake DAG after dry-run execution')
         self.dag = dag
 
 
     def compileWorkflow(self):
-        # compile workflow to build the DAG
+        """Compile the workflow and build a DAG via a dry-run.
+
+        Uses the public Snakemake API when available (>=9),
+        falling back to legacy internals for older versions.
+        Returns an object exposing a ``dag`` attribute for downstream use.
+        """
+        # Preferred API (Snakemake >= 9)
+        if _SMSnakemakeApi is not None and _SMDAGSettings is not None:
+            from types import SimpleNamespace
+            from pathlib import Path as _Path
+
+            # Build workflow and execute dryrun via API
+            with _SMSnakemakeApi() as api:
+                wf_api = api.workflow(
+                    resource_settings=_SMResourceSettings(cores=1),
+                    snakefile=_Path(self.snakefile),
+                    workdir=None,
+                )
+                dag_api = wf_api.dag(
+                    dag_settings=_SMDAGSettings(
+                        targets=set(self.targets),
+                        forceall=True,
+                    )
+                )
+                # execute with dryrun executor to materialize DAG
+                # Try to build DAG; if missing raw inputs are reported, create
+                # minimal placeholders (dirs or empty files) and retry once.
+                try:
+                    dag_api.execute_workflow(executor="dryrun", updated_files=[])
+                except Exception as ex:  # pragma: no cover - compatibility path
+                    from snakemake.exceptions import MissingInputException
+                    if isinstance(ex, MissingInputException):
+                        msg = str(ex)
+                        missing = []
+                        # Parse affected files from exception message
+                        if "affected files:" in msg:
+                            tail = msg.split("affected files:")[-1].strip()
+                            # support multiple lines
+                            for line in tail.splitlines():
+                                line = line.strip().lstrip("- ")
+                                if line:
+                                    missing.append(line)
+                        for m in missing:
+                            p = Path(m)
+                            if p.suffix == "":
+                                p.mkdir(parents=True, exist_ok=True)
+                            else:
+                                p.parent.mkdir(parents=True, exist_ok=True)
+                                p.touch(exist_ok=True)
+                        # retry once
+                        dag_api.execute_workflow(executor="dryrun", updated_files=[])
+                    else:
+                        raise
+
+                # Expose the underlying workflow's dag via a simple wrapper
+                underlying_wf = wf_api._workflow  # noqa: SLF001 - public via API property
+                dag = getattr(underlying_wf, 'dag', None)
+                if dag is None:
+                    # Some versions might keep dag on persistence
+                    dag = getattr(getattr(underlying_wf, 'persistence', None), 'dag', None)
+                if dag is None:
+                    raise RuntimeError('Unable to access Snakemake DAG after dry-run execution (API path)')
+                return SimpleNamespace(dag=dag)
+
+        # Legacy fallback (Snakemake < 9)
         # Some Snakemake versions do not expose logger.setup_logfile
         logger = getattr(snakemake, 'logger', None)
         if logger is not None and hasattr(logger, 'setup_logfile'):
@@ -139,18 +218,15 @@ class IOParser:
             except Exception:
                 pass
 
-        # Build workflow using version-compatible entry point
         if _SMWorkflow is None:
             raise RuntimeError("Snakemake Workflow API not found; incompatible version")
 
-        # Use conservative constructor args for compatibility
         workflow = _SMWorkflow(self.snakefile)
         workflow.include(self.snakefile)
         workflow.check()
-
+        # execute legacy dryrun
         workflow.execute(dryrun=True, updated_files=[], quiet=True,
                          targets=self.targets, forceall=True)
-
         return workflow
 
     def getInputOutput(self):
@@ -167,5 +243,3 @@ class IOParser:
         for j in dag.jobs:
             jobs[j.name] = j
         return jobs
-
-
