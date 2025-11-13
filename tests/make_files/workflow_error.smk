@@ -7,6 +7,6 @@ rule sort_spikes:
     output:
         recording_info = '{recording}/processed/recording_info.pkl'
     log:
-        '{recording}/processed/snakemake.log'
+        '{recording}/processed/error.log'
     script:
         '../scripts/error.py'

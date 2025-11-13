@@ -1,9 +1,27 @@
 import os
 import shutil
 from pathlib import Path
+import glob
 
 import pytest
 from snakehelper.SnakeIOHelper import getSnake
+import subprocess
+
+
+@pytest.fixture(scope="session", autouse=True)
+def cleanup_tmp_recordings():
+    """Clean up any tmp_recording folders before and after test session."""
+    # Cleanup before tests
+    for folder in glob.glob('tmp_recording*'):
+        if os.path.isdir(folder):
+            shutil.rmtree(folder)
+
+    yield
+
+    # Cleanup after tests
+    for folder in glob.glob('tmp_recording*'):
+        if os.path.isdir(folder):
+            shutil.rmtree(folder)
 
 def test_parse_workflow():
     (sinput, soutput) = getSnake(locals(), 'tests/make_files/workflow_common.smk', 
@@ -247,3 +265,36 @@ def test_error_logging_mechanism():
         # Clean up
         if expected_log_file.exists():
             expected_log_file.unlink()
+
+
+def test_cli_execution_error_logfile():
+    subprocess.run(
+        'uv run snakemake -F --snakefile tests/make_files/workflow_error.smk tests/example_recording/processed/recording_info.pkl'.split()
+    )
+
+    expected_log_file = Path('tests/example_recording/processed/error.log')
+
+    # Clean up
+    assert expected_log_file.exists()
+
+    log_content = expected_log_file.read_text()
+    assert 'ValueError' in log_content, "Log should mention the error type"
+
+    if expected_log_file.exists():
+        expected_log_file.unlink()
+
+def test_cli_execution_normal_logfile():
+    subprocess.run(
+        'uv run snakemake -F --snakefile tests/make_files/workflow_common.smk tests/example_recording/processed/recording_info.pkl'.split()
+    )
+
+    expected_log_file = Path('tests/example_recording/processed/snakemake.log')
+
+    # Clean up
+    assert expected_log_file.exists()
+
+    log_content = expected_log_file.read_text()
+    assert 'Finish' in log_content, "Log should contain the finish message"
+
+    if expected_log_file.exists():
+        expected_log_file.unlink()

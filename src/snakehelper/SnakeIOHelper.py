@@ -7,6 +7,8 @@ from types import SimpleNamespace
 from snakemake.api import DAGSettings as _SMDAGSettings
 from snakemake.api import SnakemakeApi as _SMSnakemakeApi
 from snakemake.settings.types import ResourceSettings as _SMResourceSettings
+from loguru import logger
+import sys
 
 
 def _apply_jupyter_asyncio_patch():
@@ -80,7 +82,8 @@ def makeFolders(output):
                 print('Created folder:' + str(parent))
 
 def getSnake(locals:dict,snakefile:str, targets:list,
-             rule:str, createFolder:bool = True, return_snake_obj=False, change_working_dir=True):
+             rule:str, redirect_error  = True,
+            createFolder:bool = True, return_snake_obj=False, change_working_dir=True):
     """Return the input and output files according to a snakemake file, target and running rule
 
     Args:
@@ -110,6 +113,11 @@ def getSnake(locals:dict,snakefile:str, targets:list,
             if createFolder:
                 makeFolders(io.output)
 
+            if redirect_error and createFolder:
+                if len(io.log) > 0 :
+                    logfile = io.log[0]
+                    prepare_logger(logfile)
+
             if return_snake_obj:
                 return (io.input, io.output, io)
             else:
@@ -122,10 +130,24 @@ def getSnake(locals:dict,snakefile:str, targets:list,
     else:
         if createFolder:
             makeFolders(locals['snakemake'].output)
+
+        if redirect_error and createFolder:
+            if hasattr(locals['snakemake'], 'log') and len(locals['snakemake'].log) > 0:
+                logfile = locals['snakemake'].log[0]
+                prepare_logger(logfile)
+
         if return_snake_obj:
             return (locals['snakemake'].input, locals['snakemake'].output, locals['snakemake'])
         else:
             return (locals['snakemake'].input, locals['snakemake'].output)
+        
+
+def prepare_logger(logfile):
+    logger.remove()  # Remove default handler
+    logger.add(logfile,  backtrace=True, diagnose=True)
+    logger.add(sys.stderr, level="ERROR")  # Also keep stderr output
+
+    sys.stderr = StreamToLogger(logger)
 
 
 def makeDummpyOutput(output):
@@ -298,3 +320,23 @@ class IOParser:
         for j in dag.jobs:
             jobs[j.name] = j
         return jobs
+
+
+# Redirect stderr to logger
+class StreamToLogger:
+    """Redirect stream writes to logger at ERROR level."""
+
+    def __init__(self, logger_instance):
+        """Initialize StreamToLogger with a logger instance.
+
+        Args:
+            logger_instance: A logger object with an error() method (e.g., loguru logger)
+        """
+        self.logger = logger_instance
+
+    def write(self, message: str) -> None:
+        if message.strip():
+            self.logger.error(message.rstrip())
+
+    def flush(self) -> None:
+        pass
