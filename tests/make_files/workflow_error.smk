@@ -9,4 +9,4 @@ rule sort_spikes:
     log:
         '{recording}/processed/snakemake.log'
     script:
-        '../scripts/normal.py'
+        '../scripts/error.py'

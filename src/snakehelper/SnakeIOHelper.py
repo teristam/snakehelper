@@ -79,7 +79,7 @@ def makeFolders(output):
                 os.makedirs(parent)
                 print('Created folder:' + str(parent))
 
-def getSnake(locals:dict,snakefile:str, targets:list, 
+def getSnake(locals:dict,snakefile:str, targets:list,
              rule:str, createFolder:bool = True, return_snake_obj=False, change_working_dir=True):
     """Return the input and output files according to a snakemake file, target and running rule
 
@@ -88,30 +88,37 @@ def getSnake(locals:dict,snakefile:str, targets:list,
     snakefile (str): Snakefile location
     targets (list): The file or files that are created when the rule is executed
     rule (str): The rule for which you want to determine the input and output files
-    createFolder (bool): Whether or not to create output folders. Default is True. 
+    createFolder (bool): Whether or not to create output folders. Default is True.
 
     Returns:
     Tuple: A tuple of dictionaries containing input and output file names, as defined in the snakemake file.
     """
 
-    if 'snakemake' not in locals: 
+    if 'snakemake' not in locals:
         #We are running standlone mode
-        
+
         #Auto switch to project root folder if SNAKE_ROOT is set
         snake_root = os.environ.get('SNAKEMAKE_DEBUG_ROOT')
         if snake_root is not None and change_working_dir:
             print('Changing working directory to:' + snake_root)
             os.chdir(snake_root)
-            
-        parser = IOParser(snakefile, targets)
-        io = parser.getInputOutput4rule(rule)
-        if createFolder:
-            makeFolders(io.output)
-            
-        if return_snake_obj:
-            return (io.input, io.output, io)
-        else:
-            return (io.input, io.output)
+
+        parser = None
+        try:
+            parser = IOParser(snakefile, targets)
+            io = parser.getInputOutput4rule(rule)
+            if createFolder:
+                makeFolders(io.output)
+
+            if return_snake_obj:
+                return (io.input, io.output, io)
+            else:
+                return (io.input, io.output)
+        except Exception as e:
+            # If we have a parser and it has log files, try to write the error
+            if parser is not None and hasattr(parser, 'log_files') and rule in parser.log_files:
+                parser._write_error_to_log(rule, e)
+            raise
     else:
         if createFolder:
             makeFolders(locals['snakemake'].output)
@@ -129,11 +136,22 @@ class IOParser:
     def __init__(self, snakefile:str, targets:list):
         self.snakefile = snakefile
         self.targets = targets
+        self.log_files = {}  # Will map rule names to their log files
+        self.dag = None
 
-        self.workflow = self.compileWorkflow()
-        if not hasattr(self.workflow, 'dag') or self.workflow.dag is None:
-            raise RuntimeError('Unable to access Snakemake DAG after dry-run execution')
-        self.dag = self.workflow.dag
+        try:
+            self.workflow = self.compileWorkflow()
+            if not hasattr(self.workflow, 'dag') or self.workflow.dag is None:
+                raise RuntimeError('Unable to access Snakemake DAG after dry-run execution')
+            self.dag = self.workflow.dag
+
+            # Extract log files from all jobs
+            self._extract_log_files()
+        except Exception as e:
+            # If we have a partially built DAG, try to extract log files from it
+            if self.dag is not None:
+                self._extract_log_files()
+            raise
 
 
     def compileWorkflow(self):
@@ -141,63 +159,140 @@ class IOParser:
 
         Returns an object exposing a ``dag`` attribute for downstream use.
         """
+        import sys
+        from io import StringIO
+
         # Apply nest_asyncio patch if running in Jupyter
         _apply_jupyter_asyncio_patch()
 
-        with _SMSnakemakeApi() as api:
-            wf_api = api.workflow(
-                resource_settings=_SMResourceSettings(cores=1),
-                snakefile=Path(self.snakefile),
-                workdir=None,
-            )
-            dag_api = wf_api.dag(
-                dag_settings=_SMDAGSettings(
-                    targets=set(self.targets),
-                    forceall=True,
+        # Capture stderr for potential logging
+        stderr_capture = StringIO()
+        old_stderr = sys.stderr
+        sys.stderr = stderr_capture
+
+        wf_api = None
+        try:
+            with _SMSnakemakeApi() as api:
+                wf_api = api.workflow(
+                    resource_settings=_SMResourceSettings(cores=1),
+                    snakefile=Path(self.snakefile),
+                    workdir=None,
                 )
-            )
-            # execute with dryrun executor to materialize DAG
-            from snakemake.exceptions import MissingInputException
+                dag_api = wf_api.dag(
+                    dag_settings=_SMDAGSettings(
+                        targets=set(self.targets),
+                        forceall=True,
+                    )
+                )
+                # execute with dryrun executor to materialize DAG
+                from snakemake.exceptions import MissingInputException
 
-            try:
-                dag_api.execute_workflow(executor="dryrun", updated_files=[])
-            except MissingInputException as ex:
-                # Parse and create placeholder inputs if needed, then retry once.
-                msg = str(ex)
-                missing = []
-                if "affected files:" in msg:
-                    tail = msg.split("affected files:")[-1].strip()
-                    for line in tail.splitlines():
-                        line = line.strip().lstrip("- ")
-                        if line:
-                            missing.append(line)
-                for m in missing:
-                    p = Path(m)
-                    if p.suffix == "":
-                        p.mkdir(parents=True, exist_ok=True)
-                    else:
-                        p.parent.mkdir(parents=True, exist_ok=True)
-                        p.touch(exist_ok=True)
-                dag_api.execute_workflow(executor="dryrun", updated_files=[])
+                try:
+                    dag_api.execute_workflow(executor="dryrun", updated_files=[])
+                except MissingInputException as ex:
+                    # Parse and create placeholder inputs if needed, then retry once.
+                    msg = str(ex)
+                    missing = []
+                    if "affected files:" in msg:
+                        tail = msg.split("affected files:")[-1].strip()
+                        for line in tail.splitlines():
+                            line = line.strip().lstrip("- ")
+                            if line:
+                                missing.append(line)
+                    for m in missing:
+                        p = Path(m)
+                        if p.suffix == "":
+                            p.mkdir(parents=True, exist_ok=True)
+                        else:
+                            p.parent.mkdir(parents=True, exist_ok=True)
+                            p.touch(exist_ok=True)
+                    dag_api.execute_workflow(executor="dryrun", updated_files=[])
 
-            # Expose the underlying workflow's dag via a simple wrapper
-            underlying_wf = wf_api._workflow
-            dag = getattr(underlying_wf, 'dag', None)
-            if dag is None:
-                dag = getattr(getattr(underlying_wf, 'persistence', None), 'dag', None)
-            if dag is None:
-                raise RuntimeError('Unable to access Snakemake DAG after dry-run execution')
-            return SimpleNamespace(dag=dag)
+                # Expose the underlying workflow's dag via a simple wrapper
+                underlying_wf = wf_api._workflow
+                dag = getattr(underlying_wf, 'dag', None)
+                if dag is None:
+                    dag = getattr(getattr(underlying_wf, 'persistence', None), 'dag', None)
+                if dag is None:
+                    raise RuntimeError('Unable to access Snakemake DAG after dry-run execution')
+
+                # Store captured stderr for later use
+                self._stderr_output = stderr_capture.getvalue()
+                # Make DAG available to the class
+                self.dag = dag
+                return SimpleNamespace(dag=dag)
+        except Exception as e:
+            # Store stderr and exception for potential logging
+            self._stderr_output = stderr_capture.getvalue()
+            self._compilation_error = e
+
+            # Try to extract DAG even if there was an error
+            if wf_api is not None:
+                try:
+                    underlying_wf = wf_api._workflow
+                    dag = getattr(underlying_wf, 'dag', None)
+                    if dag is None:
+                        dag = getattr(getattr(underlying_wf, 'persistence', None), 'dag', None)
+                    if dag is not None:
+                        self.dag = dag
+                except:
+                    pass  # If we can't get the DAG, that's ok
+            raise
+        finally:
+            # Restore original stderr
+            sys.stderr = old_stderr
+
+    def _extract_log_files(self):
+        """Extract log file paths from all jobs in the DAG."""
+        for job in self.dag.jobs:
+            if hasattr(job, 'log') and job.log:
+                # Get the first log file if there are multiple
+                if hasattr(job.log, '__iter__') and not isinstance(job.log, str):
+                    log_file = next(iter(job.log), None)
+                else:
+                    log_file = job.log
+                if log_file:
+                    self.log_files[job.name] = str(log_file)
+
+    def _write_error_to_log(self, rulename: str, error: Exception):
+        """Write error information to the rule's log file."""
+        if rulename in self.log_files:
+            log_file = self.log_files[rulename]
+            import traceback
+            log_path = Path(log_file)
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(log_file, 'a') as f:
+                f.write("=== Error during workflow compilation/execution ===\n")
+                f.write(f"Error: {str(error)}\n")
+                f.write(traceback.format_exc())
+                if hasattr(self, '_stderr_output') and self._stderr_output:
+                    f.write("\n=== Captured stderr ===\n")
+                    f.write(self._stderr_output)
+                f.write("\n")
 
     def getInputOutput(self):
         return self.getJobList(self.dag)
 
-    def getInputOutput4rule(self,rulename:str):
-        #Get the input and output of a specific rule
-        io = self.getInputOutput()
-        return io[rulename]
-    
-    def getJobList(self,dag):
+    def getInputOutput4rule(self, rulename: str):
+        """Get the input and output of a specific rule.
+
+        If an error occurred during compilation, log it to the rule's log file.
+        """
+        try:
+            io = self.getInputOutput()
+            result = io[rulename]
+
+            # If there was a compilation error stored, write it to log
+            if hasattr(self, '_compilation_error'):
+                self._write_error_to_log(rulename, self._compilation_error)
+
+            return result
+        except Exception as e:
+            # Write any errors to the log file if available
+            self._write_error_to_log(rulename, e)
+            raise
+
+    def getJobList(self, dag):
         # Return a dict of jobs
         jobs = {}
         for j in dag.jobs:

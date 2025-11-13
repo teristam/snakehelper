@@ -1,0 +1,1 @@
+raise ValueError('There is some error in script.')
