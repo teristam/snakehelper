@@ -8,6 +8,31 @@ from snakemake.api import DAGSettings as _SMDAGSettings
 from snakemake.api import SnakemakeApi as _SMSnakemakeApi
 from snakemake.settings.types import ResourceSettings as _SMResourceSettings
 
+
+def _apply_jupyter_asyncio_patch():
+    """Apply nest_asyncio patch if running in Jupyter environment.
+
+    This allows Snakemake's asyncio code to run inside Jupyter notebooks,
+    which already have an active event loop.
+    """
+    try:
+        # Check if we're in an IPython/Jupyter environment
+        get_ipython()  # This will raise NameError if not in IPython
+
+        # Check if there's already a running event loop
+        import asyncio
+        try:
+            asyncio.get_running_loop()
+            # If we got here, there's a running loop - apply the patch
+            import nest_asyncio
+            nest_asyncio.apply()
+        except RuntimeError:
+            # No running loop, no need to patch
+            pass
+    except (NameError, ImportError):
+        # Not in IPython/Jupyter or nest_asyncio not available
+        pass
+
 def makeFolders(output):
     """Create folders for output paths if they do not exist.
 
@@ -116,6 +141,9 @@ class IOParser:
 
         Returns an object exposing a ``dag`` attribute for downstream use.
         """
+        # Apply nest_asyncio patch if running in Jupyter
+        _apply_jupyter_asyncio_patch()
+
         with _SMSnakemakeApi() as api:
             wf_api = api.workflow(
                 resource_settings=_SMResourceSettings(cores=1),

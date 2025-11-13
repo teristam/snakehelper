@@ -10,3 +10,5 @@ from snakehelper.SnakeIOHelper import getSnake
                                             ['../tests/processed/recording_info.pkl'],
                                             'sort_spikes',  change_working_dir=False)
 
+
+# %%
