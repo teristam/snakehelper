@@ -17,6 +17,8 @@ Key component:
   - `getSnake()`: Main entry point that detects execution mode and returns input/output dictionaries
   - `IOParser`: Compiles workflows using Snakemake API (>= 9.0) to build DAG and extract I/O
   - `makeFolders()`: Creates output directories as needed
+  - `prepare_logger()`: Sets up loguru-based logging with stderr redirection
+  - `StreamToLogger`: Class that redirects stderr writes to the log file
 
 The detection mechanism uses `locals()` dictionary inspection to determine if the `snakemake` object exists, automatically switching between modes without code changes.
 
@@ -69,6 +71,28 @@ If Snakemake reports missing input files during DAG compilation, `IOParser.compi
 
 ### Cross-Platform Path Handling
 Tests use `Path()` comparisons to handle Windows vs POSIX path separator differences. When working with file paths from Snakemake output objects, convert to `Path` for comparisons.
+
+### Error Logging and Stderr Capture
+The library includes a comprehensive logging mechanism that captures errors and stderr output to Snakemake log files:
+
+**Key Features:**
+- **Automatic Log Setup**: When `redirect_error=True` (default) in `getSnake()` and a log file is defined in the Snakemake rule, logging is automatically configured using loguru
+- **Stderr Redirection**: The `StreamToLogger` class redirects all stderr writes to the log file while maintaining ERROR-level output to the terminal
+- **Compilation Error Capture**: During workflow compilation, stderr is captured and can be written to log files if errors occur
+- **Error Logging**: The `IOParser._write_error_to_log()` method writes exception tracebacks, error messages, and captured stderr to the appropriate log file
+
+**How It Works:**
+1. When `getSnake()` is called with `redirect_error=True` and a log file exists, it calls `prepare_logger(logfile)`
+2. `prepare_logger()` configures loguru to write to the log file with full backtrace and diagnostic info
+3. `sys.stderr` is replaced with a `StreamToLogger` instance that writes to both the log file and terminal stderr
+4. If exceptions occur during compilation or execution, they're caught and written to the rule's log file with full context
+5. The `IOParser` extracts log file paths from the DAG during compilation via `_extract_log_files()`
+
+**Testing:**
+- `test_stderr_capture_and_logging`: Verifies stderr output is captured to log files
+- `test_error_logging_mechanism`: Tests that exceptions are properly logged with tracebacks
+- `test_cli_execution_error_logfile`: Tests log creation when running via Snakemake CLI (workflow with errors)
+- `test_cli_execution_normal_logfile`: Tests log creation when running via Snakemake CLI (normal execution)
 
 ## Windows-Specific Requirements
 
