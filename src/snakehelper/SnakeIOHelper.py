@@ -204,6 +204,7 @@ class IOParser:
                     dag_settings=_SMDAGSettings(
                         targets=set(self.targets),
                         forceall=True,
+                        force_incomplete=True
                     )
                 )
                 # execute with dryrun executor to materialize DAG
