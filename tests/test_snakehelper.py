@@ -278,7 +278,7 @@ def test_cli_execution_error_logfile():
     assert expected_log_file.exists()
 
     log_content = expected_log_file.read_text()
-    assert 'ValueError' in log_content, "Log should mention the error type"
+    assert 'NameError' in log_content, "Log should mention the error type"
 
     if expected_log_file.exists():
         expected_log_file.unlink()

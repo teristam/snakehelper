@@ -6,6 +6,7 @@ from pathlib import Path
                                             ['tests/example_recording/processed/recording_info.pkl'],
                                             'sort_spikes', return_snake_obj=True, change_working_dir=False)
 
+some_nonexistant_function()
 
 raise ValueError('There is some error in script.')
 

@@ -333,10 +333,19 @@ class StreamToLogger:
             logger_instance: A logger object with an error() method (e.g., loguru logger)
         """
         self.logger = logger_instance
+        self._buffer = ''
 
     def write(self, message: str) -> None:
-        if message.strip():
-            self.logger.error(message.rstrip())
+        if not message:
+            return
+
+        self._buffer += message
+        if message.endswith("\n"):
+            text = self._buffer.strip()
+            if text:
+                # Log the entire accumulated message once
+                self.logger.error(text)
+            self._buffer = ""
 
     def flush(self) -> None:
         pass
