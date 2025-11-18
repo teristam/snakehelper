@@ -144,7 +144,7 @@ def getSnake(locals:dict,snakefile:str, targets:list,
 
 def prepare_logger(logfile):
     logger.remove()  # Remove default handler
-    logger.add(logfile,  backtrace=True, diagnose=True)
+    logger.add(logfile, mode='w', backtrace=True, diagnose=True)
     logger.add(sys.stderr, level="ERROR")  # Also keep stderr output
 
     sys.stderr = StreamToLogger(logger)
@@ -284,7 +284,7 @@ class IOParser:
             import traceback
             log_path = Path(log_file)
             log_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(log_file, 'a') as f:
+            with open(log_file, 'w') as f:
                 f.write("=== Error during workflow compilation/execution ===\n")
                 f.write(f"Error: {str(error)}\n")
                 f.write(traceback.format_exc())
