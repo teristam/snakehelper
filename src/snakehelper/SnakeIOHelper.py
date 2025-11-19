@@ -357,30 +357,4 @@ class StreamToLogger:
             self._buffer = ""
 
     def flush(self) -> None:
-        """Flush any buffered content and ensure logger handlers are flushed.
-
-        This is critical for Jupyter notebooks, which call flush() on stderr
-        after errors. Without this, the kernel can hang waiting for the flush
-        to complete.
-        """
-        # First, write any buffered content
-        if self._buffer:
-            text = self._buffer.strip()
-            if text:
-                self.logger.error(text)
-            self._buffer = ""
-
-        # Ensure the logger's handlers are flushed
-        # loguru's complete() method waits for all handlers to finish
-        try:
-            self.logger.complete()
-        except (AttributeError, Exception):
-            # If complete() doesn't exist or fails, try to flush original stderr
-            pass
-
-        # Also flush the original stderr to ensure terminal output is written
-        try:
-            if hasattr(self._original_stderr, 'flush'):
-                self._original_stderr.flush()
-        except (AttributeError, Exception):
-            pass
+        pass
