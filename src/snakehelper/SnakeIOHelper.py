@@ -143,11 +143,14 @@ def getSnake(locals:dict,snakefile:str, targets:list,
         
 
 def prepare_logger(logfile):
+    # Save the original stderr before replacing it
+    original_stderr = sys.stderr
+
     logger.remove()  # Remove default handler
     logger.add(logfile, mode='w', backtrace=True, diagnose=True)
-    logger.add(sys.stderr, level="ERROR")  # Also keep stderr output
+    logger.add(original_stderr, level="ERROR")  # Also keep stderr output
 
-    sys.stderr = StreamToLogger(logger)
+    sys.stderr = StreamToLogger(logger, original_stderr)
 
 
 def makeDummpyOutput(output):
@@ -327,14 +330,16 @@ class IOParser:
 class StreamToLogger:
     """Redirect stream writes to logger at ERROR level."""
 
-    def __init__(self, logger_instance):
+    def __init__(self, logger_instance, original_stderr=None):
         """Initialize StreamToLogger with a logger instance.
 
         Args:
             logger_instance: A logger object with an error() method (e.g., loguru logger)
+            original_stderr: The original stderr stream to use for terminal output (optional)
         """
         self.logger = logger_instance
         self._buffer = ''
+        self._original_stderr = original_stderr or sys.__stderr__
 
     def write(self, message: str) -> None:
         if not message:
@@ -349,4 +354,30 @@ class StreamToLogger:
             self._buffer = ""
 
     def flush(self) -> None:
-        pass
+        """Flush any buffered content and ensure logger handlers are flushed.
+
+        This is critical for Jupyter notebooks, which call flush() on stderr
+        after errors. Without this, the kernel can hang waiting for the flush
+        to complete.
+        """
+        # First, write any buffered content
+        if self._buffer:
+            text = self._buffer.strip()
+            if text:
+                self.logger.error(text)
+            self._buffer = ""
+
+        # Ensure the logger's handlers are flushed
+        # loguru's complete() method waits for all handlers to finish
+        try:
+            self.logger.complete()
+        except (AttributeError, Exception):
+            # If complete() doesn't exist or fails, try to flush original stderr
+            pass
+
+        # Also flush the original stderr to ensure terminal output is written
+        try:
+            if hasattr(self._original_stderr, 'flush'):
+                self._original_stderr.flush()
+        except (AttributeError, Exception):
+            pass
