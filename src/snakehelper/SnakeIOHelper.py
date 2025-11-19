@@ -147,11 +147,11 @@ def prepare_logger(logfile):
     # Save the original stderr before replacing it
     # exception will be printed to stderr, we have redicted stderr to the log file
     
-    original_stderr = sys.stderr
+    original_stderr = sys.stdout
 
     logger.remove()  # Remove default handler
     logger.add(logfile, mode='w', backtrace=True, diagnose=True)
-    logger.add(sys.stdout, level="ERROR")  # Also keep stderr output
+    logger.add(original_stderr, level="ERROR")  # direct to stdout for visibility, do NOT write to stderr
 
     sys.stderr = StreamToLogger(logger, original_stderr)
 
