@@ -140,15 +140,18 @@ def getSnake(locals:dict,snakefile:str, targets:list,
             return (locals['snakemake'].input, locals['snakemake'].output, locals['snakemake'])
         else:
             return (locals['snakemake'].input, locals['snakemake'].output)
-        
+
+     
 
 def prepare_logger(logfile):
     # Save the original stderr before replacing it
+    # exception will be printed to stderr, we have redicted stderr to the log file
+    
     original_stderr = sys.stderr
 
     logger.remove()  # Remove default handler
     logger.add(logfile, mode='w', backtrace=True, diagnose=True)
-    logger.add(original_stderr, level="ERROR")  # Also keep stderr output
+    logger.add(sys.stdout, level="ERROR")  # Also keep stderr output
 
     sys.stderr = StreamToLogger(logger, original_stderr)
 
